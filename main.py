@@ -6,7 +6,6 @@ import os
 import time
 
 def download_playlist(playlist_url, path):
-    
     playlist_uri = f"spotify:playlist:{playlist_url.split('/')[-1]}" # making uri out of url
     results = spotipy.playlist_items(playlist_uri, market=None) # getting the playlist
     playlist_name = spotipy.user_playlist(user=None, playlist_id=playlist_uri.split(":")[-1], fields="name")["name"] # getting playlist name
@@ -41,6 +40,8 @@ def download_song(song_url, path):
 def download_album(album_url, path):
     album_uri = f"spotify:album:{album_url.split('/')[-1]}" # making uri out of url
     result = spotipy.album_tracks(album_id=album_uri.split(":")[-1], limit=None) # getting album
+    print(f"Downloading {spotipy.album(album_id=album_uri.split(':')[-1])['name']}...")
+    time.sleep(1)
 
     for song in result['items']:
         track = f"{song['name']} {song['artists'][0]['name']}" # getting name of song
