@@ -3,12 +3,16 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from youtubesearchpython import VideosSearch
 import os
+import time
 
 spotipy = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials()) # creating the spotipy handler
 
 def download_playlist(playlist_url):
     playlist_uri = f"spotify:playlist:{playlist_url.split('/')[-1]}"
     results = spotipy.playlist_items(playlist_uri, market=None) # getting the playlist
+    playlist_name = spotipy.user_playlist(user=None, playlist_id=playlist_uri.split(":")[-1], fields="name")["name"]
+    print(f"Downloading '{playlist_name}'...")
+    time.sleep(1)
 
     for song in results['items']: # getting each song name and its artist
         track = f'{song["track"]["name"]} by {song["track"]["artists"][0]["name"]}'
