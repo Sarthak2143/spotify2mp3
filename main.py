@@ -19,7 +19,7 @@ def download_playlist(playlist_url, path):
         url = videosSearch.result()['result'][0]["link"] # getting url of first video
         try:
             if path != ".": # searching for path
-                os.system(f"./ytmp3-dl.py \"{url}\" -d {path}") # downloading music by url
+                os.system(f"./ytmp3-dl.py --dir {path} \"{url}\"") # downloading music by url
             else:
                 os.system(f"./ytmp3-dl.py \"{url}\"") # downloading music by url
         except Exception as e:
@@ -32,13 +32,13 @@ def download_song(song_url, path):
     url = videosSearch.result()['result'][0]['link'] # getting url
     try:
         if path != ".": # searching for path
-            os.system(f"./ytmp3-dl.py \"{url}\" -d {path}") # downloading music by url
+            os.system(f"./ytmp3-dl.py --dir {path} \"{url}\"") # downloading music by url
         else:
             os.system(f"./ytmp3-dl.py \"{url}\"") # downloading music by url
     except Exception as e:
         print(e)
 
-def download_album(album_url):
+def download_album(album_url, path):
     album_uri = f"spotify:album:{album_url.split('/')[-1]}" # making uri out of url
     result = spotipy.album_tracks(album_id=album_uri.split(":")[-1], limit=None) # getting album
 
@@ -48,7 +48,7 @@ def download_album(album_url):
         url = videosSearch.result()['result'][0]['link'] # getting url
         try: # searching for path
             if path != ".":
-                os.system(f"./ytmp3-dl.py \"{url}\" -d {path}") # downloading music by url
+                os.system(f"./ytmp3-dl.py --dir {path} \"{url}\"") # downloading music by url
             else:
                 os.system(f"./ytmp3-dl.py \"{url}\"") # downloading music by url
         except Exception as e:
