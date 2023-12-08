@@ -5,8 +5,6 @@ from youtubesearchpython import VideosSearch
 import os
 import time
 
-spotipy = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials()) # creating the spotipy handler
-
 def download_playlist(playlist_url):
     playlist_uri = f"spotify:playlist:{playlist_url.split('/')[-1]}"
     results = spotipy.playlist_items(playlist_uri, market=None) # getting the playlist
@@ -28,7 +26,18 @@ def download_song(song_url):
     url = videosSearch.result()['result'][0]['link']
     os.system(f"./ytmp3-dl.py '{url}'")
 
+def download_album(album_url):
+    album_uri = f"spotify:album:{album_url.split('/')[-1]}"
+    result = spotipy.album_tracks(album_id=album_uri.split(":")[-1], limit=None)
+
+    for song in result['items']:
+        track = f"{song['name']} {song['artists'][0]['name']}"
+        videosSearch = VideosSearch(track, limit = 2) # searching for song name
+        url = videosSearch.result()['result'][0]['link']
+        os.system(f"./ytmp3-dl.py '{url}'")
+
 if __name__ == "__main__":
+    spotipy = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials()) # creating the spotipy handler
     try:
         url = input("Enter the url of your playlist/song: ")
     except Exception as e:
@@ -37,6 +46,7 @@ if __name__ == "__main__":
         download_playlist(url)
     elif url.split("/")[-2] == "track":
         download_song(url)
+    elif url.split("/")[-2] == "album":
+        download_album(url)
     else:
         print("Error")
-    
