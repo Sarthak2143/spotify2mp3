@@ -6,6 +6,7 @@ Download spotify playlists, songs and albums as .mp3 files.
 
 
 ## TODO:
+- [ ] Write steps to download snd pre-requistes
 - [ ] Download to custom path
 
 -- Note: Downloading custom path removes multiple downloads, we need both
