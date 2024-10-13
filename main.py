@@ -9,6 +9,18 @@ import json
 import time
 from tqdm import tqdm
 import argparse
+import signal
+
+# Global variable to track if we're exiting
+exiting = False
+
+def signal_handler(signum, frame):
+    global exiting
+    exiting = True
+    print("\nReceived interrupt signal. Finishing current downloads and exiting...")
+
+# Register the signal handler
+signal.signal(signal.SIGINT, signal_handler)
 
 # Load Spotify credentials
 with open("config.json") as file:
@@ -111,7 +123,12 @@ def process_tracks(tracks, name, total_tracks):
     
     return url_list, name
 
+
 def download_youtube_audio(url, output_dir, audio_format, audio_quality):
+    global exiting
+    if exiting:
+        return False
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -125,6 +142,8 @@ def download_youtube_audio(url, output_dir, audio_format, audio_quality):
     }
 
     for attempt in range(3):  # Try up to 3 times
+        if exiting:
+            return False
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
@@ -136,15 +155,27 @@ def download_youtube_audio(url, output_dir, audio_format, audio_quality):
             time.sleep(attempt * 2)  # Exponential backoff
 
 def download_multiple(urls, output_dir, num_processes=5, audio_format='mp3', audio_quality='192'):
+    global exiting
     os.makedirs(output_dir, exist_ok=True)
+    
     with multiprocessing.Pool(processes=num_processes) as pool:
-        results = list(tqdm(pool.imap(
+        results = []
+        pbar = tqdm(total=len(urls), desc="Downloading")
+        for result in pool.imap(
             lambda url: download_youtube_audio(url, output_dir, audio_format, audio_quality),
             urls
-        ), total=len(urls), desc="Downloading"))
+        ):
+            results.append(result)
+            pbar.update(1)
+            if exiting:
+                pool.terminate()
+                break
+        pbar.close()
     
     success_count = sum(results)
-    print(f"Successfully downloaded {success_count} out of {len(urls)} songs.")
+    print(f"\nSuccessfully downloaded {success_count} out of {len(urls)} songs.")
+    if exiting:
+        print("Download process was interrupted. Some songs may not have been downloaded.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download Spotify playlist/album as MP3")
@@ -154,14 +185,22 @@ if __name__ == "__main__":
     parser.add_argument("-q", "--quality", default="192", choices=["128", "192", "256", "320"], help="Audio quality (bitrate)")
     args = parser.parse_args()
 
-    if args.url.lower() == 'liked':
-        urls, output_dir = download_user_library(args.limit)
-    else:
-        urls, output_dir = get_songs_url(args.url, args.limit)
+    try:
+        if args.url.lower() == 'liked':
+            urls, output_dir = download_user_library(args.limit)
+        else:
+            urls, output_dir = get_songs_url(args.url, args.limit)
 
-    num_processes = min(multiprocessing.cpu_count(), 5)
-    
-    print(f"Attempting to download {len(urls)} songs to '{output_dir}'...")
-    download_multiple(urls, output_dir, num_processes, args.format, args.quality)
-    print("All downloads completed.")
-    print(f"Successfully downloaded {len([f for f in os.listdir(output_dir) if f.endswith('.' + args.format)])} songs.")
+        num_processes = min(multiprocessing.cpu_count(), 5)
+        
+        print(f"Attempting to download {len(urls)} songs to '{output_dir}'...")
+        download_multiple(urls, output_dir, num_processes, args.format, args.quality)
+        
+        if not exiting:
+            print("All downloads completed.")
+            print(f"Successfully downloaded {len([f for f in os.listdir(output_dir) if f.endswith('.' + args.format)])} songs.")
+    except KeyboardInterrupt:
+        print("\nScript interrupted by user. Exiting...")
+    finally:
+        if exiting:
+            print("Download process finished. Some songs may not have been downloaded due to interruption.")
