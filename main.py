@@ -28,7 +28,7 @@ def download_multiple(urls, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     # Create a pool of worker processes
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(processes=5) as pool:
         # Start the download processes
         results = [pool.apply_async(download_youtube_audio, (url, output_dir)) for url in urls]
 
