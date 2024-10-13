@@ -7,6 +7,8 @@ from spotipy.oauth2 import SpotifyOAuth
 from youtubesearchpython import VideosSearch
 import json
 import time
+from tqdm import tqdm
+import argparse
 
 # Load Spotify credentials
 with open("config.json") as file:
@@ -19,38 +21,69 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
     client_id=client_id, client_secret=client_secret, 
     redirect_uri=redirect_uri, scope="user-library-read"))
 
-def get_youtube_url(song_name, artist_name):
-    try:
-        videosSearch = VideosSearch(f"{song_name} {artist_name}", limit=1).result()
-        if videosSearch["result"]:
-            return videosSearch["result"][0]["link"]
-        else:
-            print(f"No YouTube results for: \"{song_name} {artist_name}\"")
-            return None
-    except Exception as e:
-        print(f"Error searching for \"{song_name} {artist_name}\": {str(e)}")
-        return None
+def get_youtube_url(song_name, artist_name, retries=3):
+    for attempt in range(retries):
+        try:
+            time.sleep(attempt * 1)  # Exponential backoff
+            videosSearch = VideosSearch(f"{song_name} {artist_name}", limit=1).result()
+            if videosSearch["result"]:
+                return videosSearch["result"][0]["link"]
+            else:
+                print(f"No YouTube results for: \"{song_name} {artist_name}\"")
+                return None
+        except Exception as e:
+            if attempt == retries - 1:
+                print(f"Error searching for \"{song_name} {artist_name}\": {str(e)}")
+                return None
 
-def get_songs_url(url):
+def get_songs_url(url, limit=None):
     if "album" in url:
         return download_album(url)
     elif "playlist" in url:
-        return download_playlist(url)
+        return download_playlist(url, limit)
+    elif "spotify.com/user" in url:
+        return download_user_library(limit)
     else:
-        raise ValueError("Unknown URL format. Please use a Spotify album or playlist URL.")
+        raise ValueError("Unknown URL format. Please use a Spotify album, playlist, or user library URL.")
 
-def download_playlist(url):
+def download_playlist(url, limit=None):
     id = url.split("/")[-1]
     playlist = sp.playlist(id)
     total_tracks = playlist['tracks']['total']
     tracks = []
     
-    # Fetch all tracks with pagination
     for offset in range(0, total_tracks, 100):
         results = sp.playlist_tracks(id, offset=offset, limit=100)
         tracks.extend(results['items'])
+        if limit and len(tracks) >= limit:
+            tracks = tracks[:limit]
+            break
     
-    print(f"Total tracks in playlist: {total_tracks}")
+    return process_tracks(tracks, playlist['name'], total_tracks)
+
+def download_album(url):
+    id = url.split("/")[-1]
+    album = sp.album(id)
+    tracks = album['tracks']['items']
+    return process_tracks(tracks, album['name'], len(tracks))
+
+def download_user_library(limit=None):
+    tracks = []
+    offset = 0
+    while True:
+        results = sp.current_user_saved_tracks(limit=50, offset=offset)
+        tracks.extend(results['items'])
+        if len(results['items']) < 50 or (limit and len(tracks) >= limit):
+            break
+        offset += 50
+    
+    if limit:
+        tracks = tracks[:limit]
+    
+    return process_tracks(tracks, "My Liked Songs", len(tracks))
+
+def process_tracks(tracks, name, total_tracks):
+    print(f"Processing {len(tracks)} out of {total_tracks} tracks")
     
     url_list = []
     not_found = []
@@ -72,54 +105,63 @@ def download_playlist(url):
             else:
                 not_found.append(future)
     
-    print(f"Found YouTube URLs for {len(url_list)} out of {total_tracks} tracks")
+    print(f"Found YouTube URLs for {len(url_list)} out of {len(tracks)} tracks")
     if not_found:
         print(f"Could not find YouTube URLs for {len(not_found)} tracks")
     
-    return url_list, playlist['name']
+    return url_list, name
 
-def download_album(url):
-    id = url.split("/")[-1]
-    album = sp.album(id)
-    artist_name = album['artists'][0]['name']
-    
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(get_youtube_url, song["name"], artist_name) for song in album["tracks"]["items"]]
-        url_list = [future.result() for future in futures if future.result() is not None]
-    
-    return url_list, album['name']
-
-def download_youtube_audio(url, output_dir):
+def download_youtube_audio(url, output_dir, audio_format, audio_quality):
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
+            'preferredcodec': audio_format,
+            'preferredquality': audio_quality,
         }],
         'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        print(f"Download complete: {url}")
-    except Exception as e:
-        print(f"Error downloading {url}: {str(e)}")
+    for attempt in range(3):  # Try up to 3 times
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            return True
+        except Exception as e:
+            if attempt == 2:  # Last attempt
+                print(f"Error downloading {url}: {str(e)}")
+                return False
+            time.sleep(attempt * 2)  # Exponential backoff
 
-def download_multiple(urls, output_dir, num_processes=5):
+def download_multiple(urls, output_dir, num_processes=5, audio_format='mp3', audio_quality='192'):
     os.makedirs(output_dir, exist_ok=True)
     with multiprocessing.Pool(processes=num_processes) as pool:
-        pool.starmap(download_youtube_audio, [(url, output_dir) for url in urls])
+        results = list(tqdm(pool.imap(
+            lambda url: download_youtube_audio(url, output_dir, audio_format, audio_quality),
+            urls
+        ), total=len(urls), desc="Downloading"))
+    
+    success_count = sum(results)
+    print(f"Successfully downloaded {success_count} out of {len(urls)} songs.")
 
 if __name__ == "__main__":
-    spotify_url = input("Enter URL of Spotify album or playlist: ")
-    urls, output_dir = get_songs_url(spotify_url)
+    parser = argparse.ArgumentParser(description="Download Spotify playlist/album as MP3")
+    parser.add_argument("url", help="Spotify playlist/album URL or 'liked' for user's liked songs")
+    parser.add_argument("-l", "--limit", type=int, help="Limit number of songs to download")
+    parser.add_argument("-f", "--format", default="mp3", choices=["mp3", "m4a", "wav"], help="Audio format")
+    parser.add_argument("-q", "--quality", default="192", choices=["128", "192", "256", "320"], help="Audio quality (bitrate)")
+    args = parser.parse_args()
+
+    if args.url.lower() == 'liked':
+        urls, output_dir = download_user_library(args.limit)
+    else:
+        urls, output_dir = get_songs_url(args.url, args.limit)
+
     num_processes = min(multiprocessing.cpu_count(), 5)
     
     print(f"Attempting to download {len(urls)} songs to '{output_dir}'...")
-    download_multiple(urls, output_dir, num_processes)
+    download_multiple(urls, output_dir, num_processes, args.format, args.quality)
     print("All downloads completed.")
-    print(f"Successfully downloaded {len([f for f in os.listdir(output_dir) if f.endswith('.mp3')])} songs.")
+    print(f"Successfully downloaded {len([f for f in os.listdir(output_dir) if f.endswith('.' + args.format)])} songs.")
