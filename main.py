@@ -124,7 +124,8 @@ def process_tracks(tracks, name, total_tracks):
     return url_list, name
 
 
-def download_youtube_audio(url, output_dir, audio_format, audio_quality):
+def download_youtube_audio(args):
+    url, output_dir, audio_format, audio_quality = args
     global exiting
     if exiting:
         return False
@@ -159,12 +160,10 @@ def download_multiple(urls, output_dir, num_processes=5, audio_format='mp3', aud
     os.makedirs(output_dir, exist_ok=True)
     
     with multiprocessing.Pool(processes=num_processes) as pool:
+        args_list = [(url, output_dir, audio_format, audio_quality) for url in urls]
         results = []
         pbar = tqdm(total=len(urls), desc="Downloading")
-        for result in pool.imap(
-            lambda url: download_youtube_audio(url, output_dir, audio_format, audio_quality),
-            urls
-        ):
+        for result in pool.imap(download_youtube_audio, args_list):
             results.append(result)
             pbar.update(1)
             if exiting:
