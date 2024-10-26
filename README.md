@@ -19,6 +19,7 @@ A Python script that downloads songs from Spotify playlists, albums, or your lik
 - FFmpeg installed on your system
 - Spotify Developer Account credentials
 - Required Python packages (install via pip):
+
   ```bash
   pip install yt-dlp spotipy youtube-search-python tqdm
   ```
