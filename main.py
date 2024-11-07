@@ -11,6 +11,14 @@ from tqdm import tqdm
 import argparse
 import signal
 
+# Constants
+SPOTIFY_SCOPE = "user-library-read"
+YOUTUBE_SEARCH_LIMIT = 1
+SPOTIFY_TRACK_LIMIT = 50
+YOUTUBE_RETRIES = 3
+DOWNLOAD_RETRIES = 3
+DOWNLOAD_BACKOFF = 2
+
 # Global variable to track if we're exiting
 exiting = False
 
@@ -31,15 +39,15 @@ with open("config.json") as file:
 
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
     client_id=client_id, client_secret=client_secret, 
-    redirect_uri=redirect_uri, scope="user-library-read"))
+    redirect_uri=redirect_uri, scope=SPOTIFY_SCOPE))
 
-def get_youtube_url(song_name, artist_name, retries=3):
+def get_youtube_url(song_name, artist_name, retries=YOUTUBE_RETRIES):
     for attempt in range(retries):
         try:
-            time.sleep(attempt * 1)  # Exponential backoff
-            videosSearch = VideosSearch(f"{song_name} {artist_name}", limit=1).result()
-            if videosSearch["result"]:
-                return videosSearch["result"][0]["link"]
+            time.sleep(attempt)  # Exponential backoff
+            videos_search = VideosSearch(f"{song_name} {artist_name}", limit=YOUTUBE_SEARCH_LIMIT).result()
+            if videos_search["result"]:
+                return videos_search["result"][0]["link"]
             else:
                 print(f"No YouTube results for: \"{song_name} {artist_name}\"")
                 return None
@@ -59,40 +67,40 @@ def get_songs_url(url, limit=None):
         raise ValueError("Unknown URL format. Please use a Spotify album, playlist, or user library URL.")
 
 def download_playlist(url, limit=None):
-    id = url.split("/")[-1]
-    playlist = sp.playlist(id)
-    total_tracks = playlist['tracks']['total']
-    tracks = []
-    
-    for offset in range(0, total_tracks, 100):
-        results = sp.playlist_tracks(id, offset=offset, limit=100)
-        tracks.extend(results['items'])
-        if limit and len(tracks) >= limit:
-            tracks = tracks[:limit]
-            break
-    
-    return process_tracks(tracks, playlist['name'], total_tracks)
+    return download_spotify_tracks(sp.playlist, sp.playlist_tracks, url, limit)
 
 def download_album(url):
-    id = url.split("/")[-1]
-    album = sp.album(id)
-    tracks = album['tracks']['items']
-    return process_tracks(tracks, album['name'], len(tracks))
+    return download_spotify_tracks(sp.album, lambda id, **kwargs: sp.album(id)['tracks'], url)
 
 def download_user_library(limit=None):
     tracks = []
     offset = 0
     while True:
-        results = sp.current_user_saved_tracks(limit=50, offset=offset)
+        results = sp.current_user_saved_tracks(limit=SPOTIFY_TRACK_LIMIT, offset=offset)
         tracks.extend(results['items'])
-        if len(results['items']) < 50 or (limit and len(tracks) >= limit):
+        if len(results['items']) < SPOTIFY_TRACK_LIMIT or (limit and len(tracks) >= limit):
             break
-        offset += 50
+        offset += SPOTIFY_TRACK_LIMIT
     
     if limit:
         tracks = tracks[:limit]
     
     return process_tracks(tracks, "My Liked Songs", len(tracks))
+
+def download_spotify_tracks(get_func, get_tracks_func, url, limit=None):
+    id = url.split("/")[-1]
+    item = get_func(id)
+    total_tracks = item['tracks']['total']
+    tracks = []
+    
+    for offset in range(0, total_tracks, 100):
+        results = get_tracks_func(id, offset=offset, limit=100)
+        tracks.extend(results['items'])
+        if limit and len(tracks) >= limit:
+            tracks = tracks[:limit]
+            break
+    
+    return process_tracks(tracks, item['name'], total_tracks)
 
 def process_tracks(tracks, name, total_tracks):
     print(f"Processing {len(tracks)} out of {total_tracks} tracks")
@@ -101,14 +109,7 @@ def process_tracks(tracks, name, total_tracks):
     not_found = []
     
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = []
-        for song in tracks:
-            try:
-                song_name = song["track"]["name"]
-                artist_name = song['track']['artists'][0]['name']
-                futures.append(executor.submit(get_youtube_url, song_name, artist_name))
-            except TypeError:
-                print(f"Problem with song: {song}")
+        futures = [executor.submit(get_youtube_url, song["track"]["name"], song['track']['artists'][0]['name']) for song in tracks]
         
         for future in futures:
             result = future.result()
@@ -122,7 +123,6 @@ def process_tracks(tracks, name, total_tracks):
         print(f"Could not find YouTube URLs for {len(not_found)} tracks")
     
     return url_list, name
-
 
 def download_youtube_audio(args):
     url, output_dir, audio_format, audio_quality = args
@@ -142,7 +142,7 @@ def download_youtube_audio(args):
         'no_warnings': True,
     }
 
-    for attempt in range(3):  # Try up to 3 times
+    for attempt in range(DOWNLOAD_RETRIES):  # Try up to 3 times
         if exiting:
             return False
         try:
@@ -150,10 +150,10 @@ def download_youtube_audio(args):
                 ydl.download([url])
             return True
         except Exception as e:
-            if attempt == 2:  # Last attempt
+            if attempt == DOWNLOAD_RETRIES - 1:  # Last attempt
                 print(f"Error downloading {url}: {str(e)}")
                 return False
-            time.sleep(attempt * 2)  # Exponential backoff
+            time.sleep(attempt * DOWNLOAD_BACKOFF)  # Exponential backoff
 
 def download_multiple(urls, output_dir, num_processes=5, audio_format='mp3', audio_quality='192'):
     global exiting
