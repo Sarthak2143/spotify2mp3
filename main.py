@@ -11,32 +11,37 @@ from tqdm import tqdm
 import argparse
 import signal
 
-# Constants
-SPOTIFY_SCOPE = "user-library-read"
-YOUTUBE_SEARCH_LIMIT = 1
-SPOTIFY_TRACK_LIMIT = 50
-YOUTUBE_RETRIES = 3
-DOWNLOAD_RETRIES = 3
-DOWNLOAD_BACKOFF = 2
+# Constants for configuration
+SPOTIFY_SCOPE = "user-library-read"  # Scope for Spotify API access
+YOUTUBE_SEARCH_LIMIT = 1  # Limit for YouTube search results
+SPOTIFY_TRACK_LIMIT = 50  # Limit for Spotify track retrieval
+YOUTUBE_RETRIES = 3  # Number of retries for YouTube search
+DOWNLOAD_RETRIES = 3  # Number of retries for downloading audio
+DOWNLOAD_BACKOFF = 2  # Backoff time for retries in seconds
 
 # Global variable to track if we're exiting
 exiting = False
 
 def signal_handler(signum, frame):
+    """
+    Signal handler for graceful shutdown on interrupt signal.
+    Sets the global 'exiting' flag to True.
+    """
     global exiting
     exiting = True
     print("\nReceived interrupt signal. Finishing current downloads and exiting...")
 
-# Register the signal handler
+# Register the signal handler for SIGINT (Ctrl+C)
 signal.signal(signal.SIGINT, signal_handler)
 
-# Load Spotify credentials
+# Load Spotify credentials from config.json
 with open("config.json") as file:
     data = json.load(file)
     client_id = data['CLIENT_ID']
     client_secret = data['CLIENT_SECRET']
     redirect_uri = data['REDIRECT_URI']
 
+# Initialize Spotify client with OAuth credentials
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
     client_id=client_id, client_secret=client_secret, 
     redirect_uri=redirect_uri, scope=SPOTIFY_SCOPE))
