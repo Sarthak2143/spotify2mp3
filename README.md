@@ -15,9 +15,8 @@ A Python script that downloads songs from Spotify playlists, albums, or your lik
 
 ## Prerequisites
 
-- Python 3.6+
+- Python 3.9+
 - FFmpeg installed on your system
-- Spotify Developer Account credentials
 - Required Python packages (install via pip):
 
   ```bash
