@@ -63,6 +63,9 @@ def get_youtube_url(song_name, artist_name, retries=YOUTUBE_RETRIES):
                 return None
 
 def get_songs_url(url, limit=None):
+    if "?" in url:
+        # removes tracking, often spotify adds a share id in the url.
+        url = url.split("?")[0]
     if "album" in url:
         return download_album(url)
     elif "playlist" in url:
@@ -94,7 +97,11 @@ def download_user_library(limit=None):
     return process_tracks(tracks, "My Liked Songs", len(tracks))
 
 def download_spotify_tracks(get_func, get_tracks_func, url, limit=None):
-    id = url.split("/")[-1]
+    """
+    get_func is a variable function to get the album or playlist
+    get_tracks_func is a var function to get the tracks of the album or playlist
+    """
+    id = url.split("/")[-1] # for ex: https://open.spotify.com/playlist/6G1yylbkuV3dxeOYhdeguk here ID: 6G1yylbkuV3dxeOYhdeguk
     item = get_func(id)
     total_tracks = item['tracks']['total']
     tracks = []
