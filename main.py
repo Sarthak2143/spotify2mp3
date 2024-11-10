@@ -22,7 +22,7 @@ DOWNLOAD_BACKOFF = 2  # Backoff time for retries in seconds
 # Global variable to track if we're exiting
 exiting = False
 
-def signal_handler(signum, frame):
+def signal_handler():
     """
     Signal handler for graceful shutdown on interrupt signal.
     Sets the global 'exiting' flag to True.
