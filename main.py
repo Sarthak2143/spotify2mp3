@@ -122,6 +122,7 @@ def process_tracks(tracks, name, total_tracks):
     not_found = []
     
     with ThreadPoolExecutor(max_workers=10) as executor:
+        # using 10 threads, you can use more if you have
         futures = [executor.submit(get_youtube_url, song["track"]["name"], song['track']['artists'][0]['name']) for song in tracks]
         
         for future in futures:
@@ -138,12 +139,13 @@ def process_tracks(tracks, name, total_tracks):
     return url_list, name
 
 def download_youtube_audio(args):
+    # using ffmpeg to download audio
     url, output_dir, audio_format, audio_quality = args
     global exiting
     if exiting:
         return False
 
-    ydl_opts = {
+    ydl_opts = { # these are the best audio settings
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -169,6 +171,7 @@ def download_youtube_audio(args):
             time.sleep(attempt * DOWNLOAD_BACKOFF)  # Exponential backoff
 
 def download_multiple(urls, output_dir, num_processes=5, audio_format='mp3', audio_quality='192'):
+    # increase num_processes to download more songs at a time
     global exiting
     os.makedirs(output_dir, exist_ok=True)
     
@@ -190,6 +193,7 @@ def download_multiple(urls, output_dir, num_processes=5, audio_format='mp3', aud
         print("Download process was interrupted. Some songs may not have been downloaded.")
 
 if __name__ == "__main__":
+    # adding arguments for better cli usablity
     parser = argparse.ArgumentParser(description="Download Spotify playlist/album as MP3")
     parser.add_argument("url", help="Spotify playlist/album URL or 'liked' for user's liked songs")
     parser.add_argument("-l", "--limit", type=int, help="Limit number of songs to download")
@@ -198,7 +202,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        if args.url.lower() == 'liked':
+        if args.url.lower() == 'liked': # liked songs
             urls, output_dir = download_user_library(args.limit)
         else:
             urls, output_dir = get_songs_url(args.url, args.limit)
@@ -211,6 +215,7 @@ if __name__ == "__main__":
         if not exiting:
             print("All downloads completed.")
             print(f"Successfully downloaded {len([f for f in os.listdir(output_dir) if f.endswith('.' + args.format)])} songs.")
+
     except KeyboardInterrupt:
         print("\nScript interrupted by user. Exiting...")
     finally:
