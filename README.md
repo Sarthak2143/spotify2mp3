@@ -39,6 +39,7 @@ A Python script that downloads songs from Spotify playlists, albums, or your lik
    - Add `http://localhost:8888/callback` to your Redirect URIs in the app settings
 
 3. Create a `config.json` file in the project directory:
+
    ```json
    {
        "CLIENT_ID": "your_client_id_here",
@@ -87,35 +88,6 @@ python main.py "playlist_url" -l 5 -f mp3 -q 320
 - `-f, --format`: Audio format (mp3, m4a, wav)
 - `-q, --quality`: Audio quality in kbps (128, 192, 256, 320)
 
-## Features in Detail
-
-### Concurrent Downloads
-The script uses Python's multiprocessing to download multiple songs simultaneously, significantly reducing the total download time. The number of concurrent downloads is automatically set based on your CPU cores (maximum 5 processes).
-
-### Error Handling
-- Automatic retries for failed YouTube searches and downloads
-- Graceful handling of keyboard interrupts
-- Progress tracking with tqdm
-- Detailed success/failure reporting
-
-### File Organization
-Downloads are automatically organized in folders named after the playlist or album. Files are named according to the song title and include the specified format extension.
-
-## Limitations
-
-- The script relies on YouTube search results, so occasionally it might not find the exact version of a song
-- Download speed depends on your internet connection and YouTube's limitations
-- Some songs might fail to download due to YouTube restrictions or region blocking
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. Here's how you can contribute:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## Legal Notice
 
@@ -127,32 +99,3 @@ This tool is for personal use only. Please respect copyright laws and terms of s
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube downloading functionality
 - [spotipy](https://spotipy.readthedocs.io/) for Spotify API integration
 - [youtube-search-python](https://github.com/alexmercerind/youtube-search-python) for YouTube search functionality
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Spotify Authentication Failed**
-   - Verify your credentials in config.json
-   - Ensure your redirect URI matches exactly in both config.json and Spotify Developer Dashboard
-
-2. **Downloads Failing**
-   - Check your internet connection
-   - Verify FFmpeg is properly installed
-   - Try lowering the number of concurrent downloads
-   - Check if the songs are available in your region
-
-3. **Script Crashes**
-   - Update your Python packages to the latest versions
-   - Check system memory usage
-   - Verify you have enough disk space
-
-### Getting Help
-
-If you encounter any issues:
-1. Check the existing issues on the [GitHub repository](https://github.com/sarthak2143/spotify2mp3/issues)
-2. Update all dependencies to their latest versions
-3. If the problem persists, create a new issue with:
-   - Your system information
-   - Complete error message
-   - Steps to reproduce the problem
