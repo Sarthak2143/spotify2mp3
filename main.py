@@ -34,7 +34,7 @@ def signal_handler(signum, frame):
 # Register the signal handler for SIGINT (Ctrl+C)
 signal.signal(signal.SIGINT, signal_handler)
 
-# Load Spotify credentials from config.json
+# Loading Spotify credentials from config.json
 with open("config.json") as file:
     data = json.load(file)
     client_id = data['CLIENT_ID']
@@ -50,9 +50,10 @@ def get_youtube_url(song_name, artist_name, retries=YOUTUBE_RETRIES):
     for attempt in range(retries):
         try:
             time.sleep(attempt)  # Exponential backoff
+            # we are searching for "{song_name} {artist_name}" to reduce any confusions
             videos_search = VideosSearch(f"{song_name} {artist_name}", limit=YOUTUBE_SEARCH_LIMIT).result()
             if videos_search["result"]:
-                return videos_search["result"][0]["link"]
+                return videos_search["result"][0]["link"] # getting the link of the video
             else:
                 print(f"No YouTube results for: \"{song_name} {artist_name}\"")
                 return None
