@@ -4,7 +4,6 @@ import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from youtubesearchpython import VideosSearch
 import json
 import time
 from tqdm import tqdm
@@ -50,13 +49,15 @@ def get_youtube_url(song_name, artist_name, retries=YOUTUBE_RETRIES):
     for attempt in range(retries):
         try:
             time.sleep(attempt)  # Exponential backoff
-            # we are searching for "{song_name} {artist_name}" to reduce any confusions
-            videos_search = VideosSearch(f"{song_name} {artist_name}", limit=YOUTUBE_SEARCH_LIMIT).result()
-            if videos_search["result"]:
-                return videos_search["result"][0]["link"] # getting the link of the video
-            else:
-                print(f"No YouTube results for: \"{song_name} {artist_name}\"")
-                return None
+            # Use yt_dlp to search YouTube
+            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+                search_query = f"ytsearch1:{song_name} {artist_name}"
+                info = ydl.extract_info(search_query, download=False)
+                if 'entries' in info and len(info['entries']) > 0:
+                    return info['entries'][0]['webpage_url']
+                else:
+                    print(f"No YouTube results for: \"{song_name} {artist_name}\"")
+                    return None
         except Exception as e:
             if attempt == retries - 1:
                 print(f"Error searching for \"{song_name} {artist_name}\": {str(e)}")
