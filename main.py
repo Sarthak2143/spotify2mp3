@@ -95,7 +95,7 @@ def download_user_library(limit=None):
     if limit:
         tracks = tracks[:limit]
     
-    return process_tracks(tracks, "My Liked Songs", len(tracks))
+    return process_tracks(tracks, "My Liked Songs", len(tracks), status="playlist")
 
 def download_spotify_tracks(get_func, get_tracks_func, url, limit=None):
     """
@@ -113,22 +113,26 @@ def download_spotify_tracks(get_func, get_tracks_func, url, limit=None):
         if limit and len(tracks) >= limit:
             tracks = tracks[:limit]
             break
-    
-    return process_tracks(tracks, item['name'], total_tracks)
+    if "album" in url:
+        return process_tracks(tracks, item['name'], total_tracks, status="album")
+    elif "playlist" in url:
+        return process_tracks(tracks, item['name'], total_tracks, status="playlist")
 
-def process_tracks(tracks, name, total_tracks):
+def process_tracks(tracks, name, total_tracks, status):
     print(f"Processing {len(tracks)} out of {total_tracks} tracks")
     # testing abit
-    with open("tracks.json", "w") as j:
-        track_json = json.dumps(tracks[0], indent=4)
-        j.write(track_json)
+    # with open("tracks.json", "w") as j:
+    #     track_json = json.dumps(tracks[0], indent=4)
+    #     j.write(track_json)
     url_list = []
     not_found = []
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         # using 10 threads, you can use more if you have
-        # TODO: albums and playlists work differently, need additiona ["track"] key for playlists.
-        futures = [executor.submit(get_youtube_url, song["name"], song['artists'][0]['name']) for song in tracks]
+        if status == "album":
+            futures = [executor.submit(get_youtube_url, song["name"], song['artists'][0]['name']) for song in tracks]
+        elif status == "playlist":
+            futures = [executor.submit(get_youtube_url, song['track']["name"], song['track']['artists'][0]['name']) for song in tracks]
         
         for future in futures:
             result = future.result()
