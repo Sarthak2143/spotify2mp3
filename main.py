@@ -127,6 +127,7 @@ def process_tracks(tracks, name, total_tracks):
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         # using 10 threads, you can use more if you have
+        # TODO: albums and playlists work differently, need additiona ["track"] key for playlists.
         futures = [executor.submit(get_youtube_url, song["name"], song['artists'][0]['name']) for song in tracks]
         
         for future in futures:
