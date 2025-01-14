@@ -120,10 +120,6 @@ def download_spotify_tracks(get_func, get_tracks_func, url, limit=None):
 
 def process_tracks(tracks, name, total_tracks, status):
     print(f"Processing {len(tracks)} out of {total_tracks} tracks")
-    # testing abit
-    # with open("tracks.json", "w") as j:
-    #     track_json = json.dumps(tracks[0], indent=4)
-    #     j.write(track_json)
     url_list = []
     not_found = []
     
