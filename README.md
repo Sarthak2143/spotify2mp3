@@ -13,6 +13,7 @@ A Python script that downloads songs from Spotify playlists, albums, or your lik
 - Automatic retry mechanism for failed downloads
 - Multithreaded YouTube URL fetching
 
+![anime girl holding python book](Aharen_Reina_Holding_Python_Programming_Language.png)
 ## Prerequisites
 
 - Python 3.9+
